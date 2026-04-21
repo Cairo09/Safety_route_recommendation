@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>SafeRoute</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 14px; color: #111827; overflow: hidden; }
+
+    /* ── NAVBAR ── */
+    #navbar {
+      position: fixed; top: 0; left: 0; right: 0; height: 50px;
+      background: #2c3e50; color: #fff;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 1200;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .nav-logo { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    #user-info { display: flex; align-items: center; gap: 10px; }
+    .nav-username { font-size: 13px; opacity: 0.85; }
+    .nav-btn { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer; transition: background 0.2s; }
+    .nav-btn:hover { background: rgba(255,255,255,0.25); }
+    .nav-link { color: #fff; font-size: 13px; text-decoration: none; opacity: 0.85; }
+    .nav-link:hover { opacity: 1; text-decoration: underline; }
+
+    /* ── SIDEBAR (desktop) ── */
+    #sidebar {
+      position: fixed; top: 50px; left: 0;
+      width: 300px; height: calc(100vh - 50px);
+      background: #fff; overflow-y: auto; padding: 16px;
+      z-index: 1000; box-shadow: 2px 0 12px rgba(0,0,0,0.12);
+    }
+    #sidebar h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: #6b7280; margin-bottom: 10px; }
+
+    /* ── INPUTS ── */
+    .input-wrapper { position: relative; margin-bottom: 10px; }
+    .input-wrapper input {
+      width: 100%; padding: 9px 12px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: 14px; outline: none; color: #111827;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-wrapper input:focus { border-color: #2c3e50; box-shadow: 0 0 0 3px rgba(44,62,80,0.1); }
+    .input-wrapper input::placeholder { color: #9ca3af; }
+
+    .autocomplete-list {
+      display: none; position: absolute; top: 100%; left: 0; right: 0;
+      background: #fff; border: 1px solid #d1d5db; border-top: none;
+      border-radius: 0 0 8px 8px; max-height: 200px; overflow-y: auto;
+      z-index: 1300; box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    }
+    .autocomplete-item { padding: 9px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f3f4f6; line-height: 1.4; }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover { background: #f0f7ff; }
+
+    /* mode selector as pills */
+    #mode-pills { display: flex; gap: 6px; margin-bottom: 10px; }
+    .mode-pill {
+      flex: 1; padding: 8px 4px; border: 1.5px solid #d1d5db;
+      border-radius: 8px; background: #fff; font-size: 13px; font-weight: 500;
+      cursor: pointer; text-align: center; transition: all 0.15s; color: #374151;
+    }
+    .mode-pill.active { border-color: #2c3e50; background: #2c3e50; color: #fff; }
+    .mode-pill:hover:not(.active) { background: #f3f4f6; }
+    /* hidden real select kept for JS compatibility */
+    #mode { display: none; }
+
+    #btn-get-route {
+      width: 100%; padding: 10px; background: #2c3e50; color: #fff;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s; margin-bottom: 14px;
+    }
+    #btn-get-route:hover { background: #1a2a38; }
+
+    .small-btn { border: 1px solid #d1d5db; border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer; background: #fff; color: #1f2937; }
+    .small-btn:hover { background: #f9fafb; }
+
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 8px 0; padding: 8px; border: 1px solid #e5e7eb;
+      border-radius: 8px; font-size: 12px; color: #374151; background: #fafafa;
+    }
+
+    /* ── ROUTE SUMMARY ── */
+    #route-summary { display: none; margin-top: 4px; }
+    .route-cards { display: flex; gap: 8px; }
+    .route-card { flex: 1; background: #f9fafb; border-radius: 8px; padding: 10px 10px 8px; border-left: 4px solid #ccc; font-size: 12px; }
+    .rc-label { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #1f2937; }
+    .rc-row { display: flex; justify-content: space-between; margin-bottom: 3px; color: #374151; }
+    .rc-row span { font-weight: 600; }
+
+    /* ── MAP ── */
+    #map { position: absolute; top: 50px; left: 300px; right: 0; bottom: 0; }
+
+    /* ── LEGEND ── */
+    #legend {
+      position: fixed; bottom: 24px; left: 316px;
+      background: rgba(255,255,255,0.95); padding: 10px 14px;
+      border-radius: 10px; font-size: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 999;
+      line-height: 1.9; backdrop-filter: blur(4px);
+    }
+    .legend-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+    /* ── FAB ── */
+    #report-fab {
+      position: fixed; bottom: 24px; right: 24px;
+      width: 56px; height: 56px; border-radius: 50%;
+      background: #e74c3c; color: #fff; border: none; font-size: 24px;
+      cursor: pointer; z-index: 1000;
+      box-shadow: 0 4px 16px rgba(231,76,60,0.55);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, transform 0.15s;
+    }
+    #report-fab:hover { background: #c0392b; transform: scale(1.07); }
+    #report-fab:active { transform: scale(0.95); }
+
+    /* ── LOADING ── */
+    #loading-overlay { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.45); align-items: center; justify-content: center; }
+    #loading-box { background: #fff; padding: 20px 36px; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.25); text-align: center; }
+    #loading-spinner { width: 36px; height: 36px; border: 4px solid #e5e7eb; border-top-color: #2c3e50; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-text { font-size: 14px; color: #374151; font-weight: 500; }
+
+    /* ── MAP CONTEXT HINT ── */
+    #map-hint {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+      background: rgba(44,62,80,0.88); color: #fff;
+      padding: 7px 16px; border-radius: 20px; font-size: 12px;
+      z-index: 1100; pointer-events: none; opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #map-hint.visible { opacity: 1; }
+
+    /* ════════════════════════════════════════════
+       MOBILE  (≤ 768px) — GMaps-style layout
+       ════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+
+      /* Map fills everything under the navbar */
+      #map {
+        position: fixed !important;
+        top: 50px; left: 0; right: 0; bottom: 0;
+      }
+
+      /* Sidebar becomes a floating search card at the top */
+      #sidebar {
+        position: fixed;
+        top: 58px; left: 10px; right: 10px;
+        width: auto; height: auto;
+        max-height: calc(100vh - 120px);
+        border-radius: 14px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+        padding: 12px 12px 8px;
+        overflow-y: auto;
+        /* starts collapsed — only search inputs visible */
+        --collapsed-h: 170px;
+        max-height: var(--collapsed-h);
+        transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #sidebar.expanded { max-height: calc(100vh - 80px); }
+
+      #sidebar h3 { display: none; }
+
+      /* Toggle rows hidden on mobile (accessible via Settings later) */
+      .toggle-row { display: none; }
+
+      /* Route summary becomes a BOTTOM SHEET on mobile */
+      #route-summary {
+        position: fixed !important;
+        bottom: 0 !important; left: 0 !important; right: 0 !important;
+        top: auto !important; margin: 0 !important;
+        background: #fff;
+        border-radius: 20px 20px 0 0;
+        padding: 0 16px 24px;
+        z-index: 1100;
+        max-height: 72vh;
+        overflow-y: auto;
+        transform: translateY(100%);
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+      }
+      #route-summary.sheet-open { transform: translateY(0); }
+
+      /* Drag handle inside bottom sheet */
+      #sheet-handle {
+        display: block;
+        width: 40px; height: 4px;
+        background: #d1d5db; border-radius: 2px;
+        margin: 10px auto 12px;
+        cursor: pointer;
+      }
+
+      /* Legend: small, bottom-left above FAB */
+      #legend { left: 8px; bottom: 82px; font-size: 11px; padding: 6px 10px; line-height: 1.7; }
+
+      /* FAB: slightly higher so it clears bottom nav bar */
+      #report-fab { bottom: 22px; right: 16px; width: 50px; height: 50px; font-size: 22px; }
+
+      /* Map hint lower on mobile */
+      #map-hint { bottom: 80px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- NAVBAR -->
+  <nav id="navbar">
+    <span class="nav-logo">🛡️ SafeRoute</span>
+    <div id="user-info">
+      <a class="nav-link" href="login.html">Login</a>
+    </div>
+  </nav>
+
+  <!-- SIDEBAR / SEARCH CARD -->
+  <aside id="sidebar">
+    <h3>Plan Your Route</h3>
+
+    <div class="input-wrapper">
+      <input id="originInput" placeholder="📍 Origin — or long-press map" autocomplete="off" />
+      <div id="originInput-list" class="autocomplete-list"></div>
+    </div>
+
+    <div class="input-wrapper">
+      <input id="destInput" placeholder="🏁 Destination — or long-press map" autocomplete="off" />
+      <div id="destInput-list" class="autocomplete-list"></div>
+    </div>
+
+    <!-- Mode pills (walk / cycle only) -->
+    <div id="mode-pills">
+      <button class="mode-pill active" data-mode="walk"  onclick="selectMode('walk')">🚶 Walk</button>
+      <button class="mode-pill"        data-mode="cycle" onclick="selectMode('cycle')">🚴 Cycle</button>
+      <button class="mode-pill"        data-mode="drive" onclick="selectMode('drive')">🚗 Drive</button>
+    </div>
+    <!-- Hidden select kept so JS can read #mode.value -->
+    <select id="mode"><option value="walk">Walk</option><option value="cycle">Cycle</option><option value="drive">Drive</option></select>
+
+    <button id="btn-get-route" onclick="getRoutesFromInput()">Get Route</button>
+
+    <div class="toggle-row">
+      <span>Area safety heatmap</span>
+      <input id="toggle-heatmap" type="checkbox" />
+    </div>
+    <div class="toggle-row">
+      <span>Nearby issue prompts</span>
+      <input id="toggle-tracking" type="checkbox" />
+    </div>
+
+    <!-- Route summary (desktop: inline; mobile: bottom sheet via CSS) -->
+    <div id="route-summary">
+      <div id="sheet-handle" onclick="closeBottomSheet()"></div>
+    </div>
+  </aside>
+
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- MAP CONTEXT HINT (right-click / long-press to set origin/dest) -->
+  <div id="map-hint">Hold to set origin / destination</div>
+
+  <!-- LEGEND -->
+  <div id="legend">
+    <div><span class="legend-dot" style="background:#27ae60"></span>Safe Route</div>
+    <div><span class="legend-dot" style="background:#e67e22"></span>Fast Route</div>
+    <div><span class="legend-dot" style="background:#e74c3c"></span>Reported Issue</div>
+    <div><span class="legend-dot" style="background:#f39c12"></span>Needs re-check</div>
+  </div>
+
+  <!-- REPORT ISSUE FAB -->
+  <button id="report-fab" title="Report an issue" onclick="enableIssueMode()">＋</button>
+
+  <!-- LOADING OVERLAY -->
+  <div id="loading-overlay">
+    <div id="loading-box">
+      <div id="loading-spinner"></div>
+      <div id="loading-text">Please wait…</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="auth.js?v=5"></script>
+  <script src="app.js?v=5"></script>
+
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:maps.olakrutrim.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:gautam007.medium.com)",
+      "Bash(curl -s \"https://api.olamaps.io/places/v1/autocomplete?input=Koramangala&api_key=7mQGKAm6JqPqdPLRNVoEDraHj48XIKS974TMC93i\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); p=d['predictions'][0]; print\\('description:', p.get\\('description'\\)\\); print\\('geometry:', p.get\\('geometry'\\)\\); print\\('structured_formatting main:', p['structured_formatting']['main_text']\\)\")",
+      "Bash(curl -s \"https://api.olamaps.io/places/v1/geocode?address=Koramangala+Bangalore&api_key=7mQGKAm6JqPqdPLRNVoEDraHj48XIKS974TMC93i\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); r=d.get\\('geocodingResults',[{}]\\)[0]; print\\('status:', d.get\\('status'\\)\\); print\\('formatted:', r.get\\('formatted_address'\\)\\); loc=r.get\\('geometry',{}\\).get\\('location',{}\\); print\\('lat:', loc.get\\('lat'\\)\\); print\\('lng:', loc.get\\('lng'\\)\\)\")"
+    ]
+  }
+}

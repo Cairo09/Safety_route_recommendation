@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -c \"import sys; sys.path.insert\\(0, 'd:/College Stuff/SEM6/swe/test'\\); from backend.config import GEOAPIFY_KEY; print\\('KEY:', repr\\(GEOAPIFY_KEY\\)\\)\")",
+      "Bash(python -c ':*)",
+      "Bash(grep -v \"^$\")",
+      "Bash(PGPASSWORD=dpsql psql -U postgres -h localhost -p 5432 -c \"CREATE DATABASE saferoute;\")",
+      "Bash(PGPASSWORD=dpsql \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -c \"CREATE DATABASE saferoute;\")",
+      "Bash(python -m backend.setup_db)",
+      "Bash(PGPASSWORD=dpsql \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -d saferoute -c \"\\\\dt\")"
+    ]
+  }
+}

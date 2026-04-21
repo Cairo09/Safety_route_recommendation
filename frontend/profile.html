@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SafeRoute - Profile</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+    }
+    .top {
+      background: #2c3e50;
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .top a { color: #fff; text-decoration: none; margin-right: 10px; font-size: 13px; }
+    .wrap { max-width: 840px; margin: 22px auto; padding: 0 16px; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .title { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .metric .k { font-size: 12px; color: #6b7280; }
+    .metric .v { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div><b>SafeRoute Profile</b></div>
+    <div>
+      <a href="index.html">Back to Map</a>
+      <a href="#" onclick="logout();return false;">Logout</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="title">User</div>
+      <div id="user-meta">Loading...</div>
+    </div>
+
+    <div class="card">
+      <div class="title">Reports</div>
+      <div class="grid" id="reported-grid"></div>
+    </div>
+
+    <div class="card">
+      <div class="title">Validations</div>
+      <div class="grid" id="validation-grid"></div>
+    </div>
+  </div>
+
+  <script src="auth.js?v=5"></script>
+  <script>
+    function m(label, value) {
+      return `<div class=\"metric\"><div class=\"k\">${label}</div><div class=\"v\">${value}</div></div>`;
+    }
+
+    async function initProfile() {
+      const user = await verifyToken();
+      if (!user) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${API_BASE}/auth/profile/stats`, { headers: authHeaders(false) });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'Failed to load profile');
+
+        document.getElementById('user-meta').innerHTML = `
+          <b>${data.user.username}</b><br>
+          <small>${data.user.email}</small>
+        `;
+
+        document.getElementById('reported-grid').innerHTML = [
+          m('Total reported', data.reported.total),
+          m('Active reports', data.reported.currently_active),
+          m('Leaning confirmed', data.reported.leaning_confirmed),
+          m('Leaning dismissed', data.reported.leaning_dismissed),
+          m('Accuracy rate', `${data.reported.accuracy_rate}%`),
+        ].join('');
+
+        document.getElementById('validation-grid').innerHTML = [
+          m('Total validations', data.validations.total),
+          m('Confirm', data.validations.confirm),
+          m('Dismiss', data.validations.dismiss),
+        ].join('');
+      } catch (err) {
+        document.getElementById('user-meta').textContent = err.message || 'Unable to load profile.';
+      }
+
+      if ('serviceWorker' in navigator) {
+        try { await navigator.serviceWorker.register('/sw.js?v=5'); } catch {}
+      }
+    }
+
+    initProfile();
+  </script>
+</body>
+</html>
+

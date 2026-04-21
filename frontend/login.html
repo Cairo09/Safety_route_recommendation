@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SafeRoute — Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    .card {
+      background: #ffffff;
+      width: min(400px, 92vw);
+      border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+      padding: 32px 24px 28px;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .logo-text {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a2e;
+      letter-spacing: -0.5px;
+    }
+
+    .tagline {
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 28px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 24px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: #f9fafb;
+      color: #6b7280;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .tab-btn.active {
+      background: #1a1a2e;
+      color: #ffffff;
+    }
+
+    /* Forms */
+    .form-panel { display: none; }
+    .form-panel.active { display: block; }
+
+    .input-group {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 16px;
+      pointer-events: none;
+      line-height: 1;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 11px 14px 11px 40px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #111827;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-group input:focus {
+      border-color: #1a1a2e;
+      box-shadow: 0 0 0 3px rgba(26, 26, 46, 0.12);
+    }
+
+    .input-group input::placeholder { color: #9ca3af; }
+
+    /* Error */
+    .error-msg {
+      display: none;
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .error-msg.visible { display: block; }
+
+    /* Submit button */
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: #1a1a2e;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-primary:hover { background: #16213e; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+
+    /* Guest link */
+    .guest-link {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: #6b7280;
+      text-decoration: none;
+    }
+
+    .guest-link:hover { color: #1a1a2e; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <span class="logo-text">🛡️ SafeRoute</span>
+    </div>
+    <p class="tagline">Smarter routes. Safer journeys.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-login" onclick="showTab('login')">Login</button>
+      <button class="tab-btn" id="tab-register" onclick="showTab('register')">Register</button>
+    </div>
+
+    <!-- Error message (shared) -->
+    <div class="error-msg" id="error-msg"></div>
+
+    <!-- Login form -->
+    <div class="form-panel active" id="panel-login">
+      <div class="input-group">
+        <span class="input-icon">👤</span>
+        <input type="text" id="login-username" placeholder="Username" autocomplete="username" />
+      </div>
+      <div class="input-group">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" />
+      </div>
+      <button class="btn-primary" id="btn-login" onclick="doLogin()">Login</button>
+    </div>
+
+    <!-- Register form -->
+    <div class="form-panel" id="panel-register">
+      <div class="input-group">
+        <span class="input-icon">👤</span>
+        <input type="text" id="reg-username" placeholder="Username (min 3 chars)" autocomplete="username" />
+      </div>
+      <div class="input-group">
+        <span class="input-icon">✉️</span>
+        <input type="email" id="reg-email" placeholder="Email address" autocomplete="email" />
+      </div>
+      <div class="input-group">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="reg-password" placeholder="Password (min 6 chars)" autocomplete="new-password" />
+      </div>
+      <button class="btn-primary" id="btn-register" onclick="doRegister()">Create Account</button>
+    </div>
+
+    <a class="guest-link" href="index.html">Continue as guest →</a>
+  </div>
+
+  <script src="auth.js?v=5"></script>
+  <script>
+    // ---------------------------------------------------------------------------
+    // Tab switching
+    // ---------------------------------------------------------------------------
+    function showTab(tab) {
+      document.getElementById('panel-login').classList.toggle('active', tab === 'login');
+      document.getElementById('panel-register').classList.toggle('active', tab === 'register');
+      document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+      document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+      hideError();
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+
+    function hideError() {
+      document.getElementById('error-msg').classList.remove('visible');
+    }
+
+    function setLoading(btnId, loading) {
+      const btn = document.getElementById(btnId);
+      btn.disabled = loading;
+      btn.textContent = loading ? 'Please wait…' : (btnId === 'btn-login' ? 'Login' : 'Create Account');
+    }
+
+    // ---------------------------------------------------------------------------
+    // Login
+    // ---------------------------------------------------------------------------
+    async function doLogin() {
+      hideError();
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+
+      if (!username || !password) {
+        showError('Please enter your username and password.');
+        return;
+      }
+
+      setLoading('btn-login', true);
+      try {
+        const resp = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          showError(data.detail || 'Login failed. Please try again.');
+          return;
+        }
+
+        setToken(data.access_token);
+        setUser(data.user);
+        window.location.href = 'index.html';
+      } catch {
+        showError('Network error. Please check your connection.');
+      } finally {
+        setLoading('btn-login', false);
+      }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Register
+    // ---------------------------------------------------------------------------
+    async function doRegister() {
+      hideError();
+      const username = document.getElementById('reg-username').value.trim();
+      const email    = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value;
+
+      if (!username || !email || !password) {
+        showError('All fields are required.');
+        return;
+      }
+      if (username.length < 3) {
+        showError('Username must be at least 3 characters.');
+        return;
+      }
+      if (password.length < 6) {
+        showError('Password must be at least 6 characters.');
+        return;
+      }
+
+      setLoading('btn-register', true);
+      try {
+        const resp = await fetch(`${API_BASE}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, password }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          showError(data.detail || 'Registration failed. Please try again.');
+          return;
+        }
+
+        setToken(data.access_token);
+        setUser(data.user);
+        window.location.href = 'index.html';
+      } catch {
+        showError('Network error. Please check your connection.');
+      } finally {
+        setLoading('btn-register', false);
+      }
+    }
+
+    // ---------------------------------------------------------------------------
+    // On load: redirect if already authenticated
+    // ---------------------------------------------------------------------------
+    (async () => {
+      const user = await verifyToken();
+      if (user) {
+        window.location.href = 'index.html';
+      }
+
+      if ('serviceWorker' in navigator) {
+        try { await navigator.serviceWorker.register('/sw.js?v=5'); } catch {}
+      }
+    })();
+
+    // Allow Enter key to submit
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const loginActive = document.getElementById('panel-login').classList.contains('active');
+      if (loginActive) doLogin();
+      else doRegister();
+    });
+  </script>
+</body>
+</html>
+
