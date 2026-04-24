@@ -552,6 +552,16 @@ async function getRoutesFromInput() {
       setTimeout(() => (window.location.href = 'login.html'), 1500);
       return;
     }
+    if (!res.ok) {
+      hideLoading();
+      let detail = 'Routing failed on the server.';
+      try { const e = await res.json(); detail = e.detail || detail; } catch {}
+      showToast(detail);
+      const summaryEl2 = document.getElementById('route-summary');
+      if (summaryEl2) { summaryEl2.style.display = 'none'; summaryEl2.classList.remove('sheet-open', 'sheet-peek'); }
+      document.body.classList.remove('sheet-active');
+      return;
+    }
     const data = await res.json();
     hideLoading();
 

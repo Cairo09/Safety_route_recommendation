@@ -312,18 +312,46 @@ def _sanitize_mode_edges(g, mode: str) -> None:
     def _val(v):
         return v[0] if isinstance(v, list) else v
 
-    bad_edges = [
-        (u, v, k)
-        for u, v, k, d in g.edges(keys=True, data=True)
-        if _val(d.get('access')) in _PRIVATE_ACCESS
-        or (mode in ('walk', 'cycle') and _val(d.get('service')) in _BAD_SERVICE)
-    ]
+    bad_edges = []
+    for u, v, k, d in g.edges(keys=True, data=True):
+        access = _val(d.get('access'))
+        service = _val(d.get('service'))
+
+        # Remove edges explicitly blocked for all users
+        if access in _PRIVATE_ACCESS:
+            bad_edges.append((u, v, k))
+            continue
+
+        if mode == 'walk':
+            # Only remove edges explicitly tagged no-pedestrian access
+            # Do NOT remove service=driveway/parking_aisle — in Indian residential
+            # areas these connect neighbourhoods and are routinely walked through
+            if _val(d.get('foot')) in ('no', 'private'):
+                bad_edges.append((u, v, k))
+        elif mode == 'cycle':
+            if service in _BAD_SERVICE:
+                bad_edges.append((u, v, k))
+        else:  # drive
+            if service in _BAD_SERVICE:
+                bad_edges.append((u, v, k))
+
     if bad_edges:
         g.remove_edges_from(bad_edges)
 
 
-def _largest_strongly_connected(g):
-    """Return largest strongly-connected subgraph — ensures every node is reachable."""
+def _largest_connected(g, mode: str):
+    """
+    Return the largest usable subgraph.
+    Walk: weakly-connected is sufficient — we do undirected pathfinding for pedestrians
+          so we don't need every node to be reachable in both directions.
+    Cycle/Drive: strongly-connected to guarantee bidirectional reachability.
+    """
+    if mode == 'walk':
+        try:
+            nodes = max(nx.weakly_connected_components(g), key=len)
+            return g.subgraph(nodes).copy()
+        except Exception:
+            return g
     try:
         return ox.utils_graph.get_largest_component(g, strongly=True)
     except AttributeError:
@@ -341,7 +369,7 @@ def _build_graph(center_lat: float, center_lon: float, dist: int, mode: str, sim
     )
     g = ox.project_graph(g)
     _sanitize_mode_edges(g, mode)
-    g = _largest_strongly_connected(g)  # guarantees every node can reach every other node
+    g = _largest_connected(g, mode)
     _stamp_base_scores(g, mode)
     _ensure_graph_bounds_latlon(g)
     return g
@@ -411,7 +439,7 @@ def preload_city_graphs() -> None:
                 print(f'[routing-preload] loading graph file: {path.name}')
                 graph = ox.load_graphml(path)
                 _sanitize_mode_edges(graph, mode)
-                graph = _largest_strongly_connected(graph)
+                graph = _largest_connected(graph, mode)
                 _stamp_base_scores(graph, mode)
                 _ensure_graph_bounds_latlon(graph)
             else:
@@ -920,8 +948,25 @@ def get_routes(
 
     safe_weights, adj_scores, proj_issues, kdtree = _precompute_safe_weights(g_proj, mode, issues_data)
 
+    # For walk mode use undirected pathfinding — pedestrians aren't bound by one-way
+    # tags and Indian OSM data has many directed streets that create false dead-ends.
+    # Geometry/stats extraction still uses the directed g_proj (handles missing edges
+    # gracefully by skipping them), so the route output is still valid.
+    g_path = g_proj.to_undirected() if mode == 'walk' else g_proj
+
     def _safe_w(u, v, d):
-        return min(safe_weights.get((u, v, k), d[k].get('length', 1.0) * 1.5) for k in d)
+        return min(
+            safe_weights.get((u, v, k),
+                safe_weights.get((v, u, k),            # check reverse for undirected
+                    d[k].get('length', 1.0) * 1.5))    # fallback
+            for k in d if d
+        ) if d else 1.0
+
+    def _fast_w(u, v, d):
+        return min(
+            float(d[k].get('length', 1.0)) / max(_edge_speed_kmh(d[k], mode), 1.0)
+            for k in d if d
+        ) if d else 1.0
 
     orig_geom, _ = ox.projection.project_geometry(
         Point(origin_lon, origin_lat), crs='EPSG:4326', to_crs=g_proj.graph['crs']
@@ -940,20 +985,30 @@ def get_routes(
         return {'error': 'Origin and destination resolve to the same point on the map'}
 
     try:
-        safe_nodes = nx.shortest_path(g_proj, orig_node, dest_node, weight=_safe_w)
-    except nx.NetworkXNoPath:
+        safe_nodes = nx.shortest_path(g_path, orig_node, dest_node, weight=_safe_w)
+    except Exception as exc:
+        print(f'[routing] safe path failed ({type(exc).__name__}: {exc})')
         safe_nodes = []
 
-    def _fast_w(u, v, d):
-        return min(
-            float(d[k].get('length', 1.0)) / max(_edge_speed_kmh(d[k], mode), 1.0)
-            for k in d
-        )
-
     try:
-        fast_nodes = nx.shortest_path(g_proj, orig_node, dest_node, weight=_fast_w)
-    except nx.NetworkXNoPath:
+        fast_nodes = nx.shortest_path(g_path, orig_node, dest_node, weight=_fast_w)
+    except Exception as exc:
+        print(f'[routing] fast path failed ({type(exc).__name__}: {exc})')
         fast_nodes = []
+
+    # Last-resort fallback: plain shortest path by distance
+    if not safe_nodes:
+        try:
+            safe_nodes = nx.shortest_path(g_path, orig_node, dest_node, weight='length')
+            print('[routing] safe route used length fallback')
+        except Exception:
+            pass
+    if not fast_nodes:
+        try:
+            fast_nodes = nx.shortest_path(g_path, orig_node, dest_node, weight='length')
+            print('[routing] fast route used length fallback')
+        except Exception:
+            pass
 
     if not safe_nodes or not fast_nodes:
         hint = ' Try switching to Walk mode — cycle/drive networks can be sparse in some areas.' if mode in ('cycle', 'drive') else ''
